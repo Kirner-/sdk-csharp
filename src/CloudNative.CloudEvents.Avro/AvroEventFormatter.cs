@@ -4,7 +4,7 @@
 
 using Avro;
 using Avro.Generic;
-using Avro.IO;
+using CloudNative.CloudEvents.Avro.Interfaces;
 using CloudNative.CloudEvents.Core;
 using System;
 using System.Collections.Generic;
@@ -41,30 +41,35 @@ namespace CloudNative.CloudEvents.Avro
         private const string DataName = "data";
 
         private static readonly string CloudEventAvroMediaType = MimeUtilities.MediaType + MediaTypeSuffix;
-        private static readonly RecordSchema avroSchema;
-        private static readonly DefaultReader avroReader;
-        private static readonly DefaultWriter avroWriter;
+        private readonly RecordSchema avroSchema;
+        private readonly IGenericRecordSerializer serializer;
         
-        static AvroEventFormatter()
+        /// <summary>
+        /// Creates an AvroEventFormatter using the default serializer.
+        /// </summary>
+        public AvroEventFormatter()
         {
-            // We're going to confidently assume that the embedded schema works. If not, type initialization
-            // will fail and that's okay since the type is useless without the proper schema.
-            using (var sr = new StreamReader(typeof(AvroEventFormatter).Assembly.GetManifestResourceStream("CloudNative.CloudEvents.Avro.AvroSchema.json")))
-            {
-                avroSchema = (RecordSchema) Schema.Parse(sr.ReadToEnd());
-            }
-            avroReader = new DefaultReader(avroSchema, avroSchema);
-            avroWriter = new DefaultWriter(avroSchema);
+            avroSchema = ParseEmbeddedSchema();
+            serializer = new BasicGenericRecordSerializer(avroSchema);
+        }
+
+        /// <summary>
+        /// Creates an AvroEventFormatter that uses a custom <see cref="IGenericRecordSerializer"/>.
+        /// </summary>
+        /// <remarks>
+        /// It is recommended to use the default serializer before defining your own wherever possible.
+        /// </remarks>
+        public AvroEventFormatter(IGenericRecordSerializer genericRecordSerializer)
+        {
+            avroSchema = ParseEmbeddedSchema();
+            serializer = genericRecordSerializer;
         }
 
         /// <inheritdoc />
         public override CloudEvent DecodeStructuredModeMessage(Stream body, ContentType? contentType, IEnumerable<CloudEventAttribute>? extensionAttributes)
         {
             Validation.CheckNotNull(body, nameof(body));
-
-            var decoder = new BinaryDecoder(body);
-            // The reuse parameter *is* allowed to be null...
-            var rawEvent = avroReader.Read<GenericRecord>(reuse: null!, decoder);
+            var rawEvent = serializer.Deserialize(body);
             return DecodeGenericRecord(rawEvent, extensionAttributes);
         }
 
@@ -162,9 +167,7 @@ namespace CloudNative.CloudEvents.Avro
                 recordAttributes[attribute.Name] = avroValue;
             }
             record.Add(AttributeName, recordAttributes);
-            MemoryStream memStream = new MemoryStream();
-            BinaryEncoder encoder = new BinaryEncoder(memStream);
-            avroWriter.Write(record, encoder);
+            var memStream = serializer.Serialize(record);
             return memStream.ToArray();
         }
 
@@ -176,5 +179,16 @@ namespace CloudNative.CloudEvents.Avro
         /// <inheritdoc />
         public override void DecodeBinaryModeEventData(ReadOnlyMemory<byte> body, CloudEvent cloudEvent) =>
             throw new NotSupportedException("The Avro event formatter does not support binary content mode");
+
+        private static RecordSchema ParseEmbeddedSchema()
+        {
+            // We're going to confidently assume that the embedded schema works. If not, type initialization
+            // will fail and that's okay since the type is useless without the proper schema.
+            using var sr = new StreamReader(typeof(AvroEventFormatter)
+                .Assembly
+                .GetManifestResourceStream("CloudNative.CloudEvents.Avro.AvroSchema.json"));
+
+            return (RecordSchema) Schema.Parse(sr.ReadToEnd());
+        }
     }
 }
