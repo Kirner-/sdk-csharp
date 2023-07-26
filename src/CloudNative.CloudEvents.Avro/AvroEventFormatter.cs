@@ -41,17 +41,12 @@ namespace CloudNative.CloudEvents.Avro
         private const string DataName = "data";
 
         private static readonly string CloudEventAvroMediaType = MimeUtilities.MediaType + MediaTypeSuffix;
-        private readonly RecordSchema avroSchema;
         private readonly IGenericRecordSerializer serializer;
-        
+
         /// <summary>
         /// Creates an AvroEventFormatter using the default serializer.
         /// </summary>
-        public AvroEventFormatter()
-        {
-            avroSchema = ParseEmbeddedSchema();
-            serializer = new BasicGenericRecordSerializer(avroSchema);
-        }
+        public AvroEventFormatter() : this(new BasicGenericRecordSerializer()) { }
 
         /// <summary>
         /// Creates an AvroEventFormatter that uses a custom <see cref="IGenericRecordSerializer"/>.
@@ -61,9 +56,13 @@ namespace CloudNative.CloudEvents.Avro
         /// </remarks>
         public AvroEventFormatter(IGenericRecordSerializer genericRecordSerializer)
         {
-            avroSchema = ParseEmbeddedSchema();
             serializer = genericRecordSerializer;
         }
+
+        /// <summary>
+        /// Avro schema used to serialize and deserialize the CloudEvent
+        /// </summary>
+        public static readonly RecordSchema AvroSchema = ParseEmbeddedSchema();
 
         /// <inheritdoc />
         public override CloudEvent DecodeStructuredModeMessage(Stream body, ContentType? contentType, IEnumerable<CloudEventAttribute>? extensionAttributes)
@@ -151,7 +150,7 @@ namespace CloudNative.CloudEvents.Avro
             contentType = new ContentType(CloudEventAvroMediaType);
 
             // We expect the Avro encoded to detect data types that can't be represented in the schema.
-            GenericRecord record = new GenericRecord(avroSchema);
+            GenericRecord record = new GenericRecord(AvroSchema);
             record.Add(DataName, cloudEvent.Data);
             var recordAttributes = new Dictionary<string, object>();
             recordAttributes[CloudEventsSpecVersion.SpecVersionAttribute.Name] = cloudEvent.SpecVersion.VersionId;

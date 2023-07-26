@@ -1,4 +1,7 @@
-﻿using Avro;
+﻿// Copyright (c) Cloud Native Foundation.
+// Licensed under the Apache 2.0 license.
+// See LICENSE file in the project root for full license information.
+
 using Avro.Generic;
 using CloudNative.CloudEvents.Avro.Interfaces;
 using System;
@@ -16,7 +19,7 @@ internal class FakeGenericRecordSerializer : IGenericRecordSerializer
 
     public FakeGenericRecordSerializer()
     {
-        DeserializeResponse = new GenericRecord(ParseEmbeddedSchema());
+        DeserializeResponse = new GenericRecord(CloudEvents.Avro.AvroEventFormatter.AvroSchema);
     }
 
     public GenericRecord Deserialize(Stream messageBody)
@@ -41,12 +44,4 @@ internal class FakeGenericRecordSerializer : IGenericRecordSerializer
             { CloudEventsSpecVersion.Default.TypeAttribute.Name, type},
             { CloudEventsSpecVersion.Default.SourceAttribute.Name, source}
         });
-
-    private static RecordSchema ParseEmbeddedSchema()
-    {
-        using var sr = (new StreamReader(typeof(FakeGenericRecordSerializer)
-            .Assembly
-            .GetManifestResourceStream("CloudNative.CloudEvents.UnitTests.AvroSchema.json")!));
-        return (RecordSchema) Schema.Parse(sr.ReadToEnd());
-    }
 }

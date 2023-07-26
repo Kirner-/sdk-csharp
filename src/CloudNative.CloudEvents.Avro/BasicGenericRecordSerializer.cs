@@ -1,4 +1,7 @@
-﻿using Avro;
+﻿// Copyright (c) Cloud Native Foundation.
+// Licensed under the Apache 2.0 license.
+// See LICENSE file in the project root for full license information.
+
 using Avro.Generic;
 using Avro.IO;
 using CloudNative.CloudEvents.Avro.Interfaces;
@@ -14,15 +17,15 @@ namespace CloudNative.CloudEvents.Avro;
 /// Makes use of the Avro <see cref="DefaultReader"/> and <see cref="DefaultWriter"/>
 /// together with the embedded Avro schema.
 /// </remarks>
-sealed internal class BasicGenericRecordSerializer : IGenericRecordSerializer
+internal sealed class BasicGenericRecordSerializer : IGenericRecordSerializer
 {
     private readonly DefaultReader avroReader;
     private readonly DefaultWriter avroWriter;
 
-    public BasicGenericRecordSerializer(RecordSchema avroSchema)
+    public BasicGenericRecordSerializer()
     {
-        avroReader = new DefaultReader(avroSchema, avroSchema);
-        avroWriter = new DefaultWriter(avroSchema);
+        avroReader = new DefaultReader(AvroEventFormatter.AvroSchema, AvroEventFormatter.AvroSchema);
+        avroWriter = new DefaultWriter(AvroEventFormatter.AvroSchema);
     }
 
     /// <inheritdoc />
